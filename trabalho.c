@@ -1,3 +1,16 @@
+//=====================================================
+// Arquivo: trabalho.c
+//
+// Autores: Jonathan Arantes Pinto
+//          Rúbia Marques Oliveira
+//          Ana Paula Fernandes
+// Data: 11/11/2016
+//
+// Trabalho de Sistemas Operacionais - Sincronizacao de Threads
+// 
+// Instituto Federal de Minas Gerais - Campus Formiga
+//=====================================================
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
