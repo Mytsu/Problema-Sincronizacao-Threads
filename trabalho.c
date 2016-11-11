@@ -5,30 +5,30 @@
 #include <assert.h>
 #include <time.h>
 
-#define NUMERO_THREADS 4
-#define MAX_FUNCIONARIOS 6
+#define NUMERO_THREADS 6
 #define TRUE 1
 #define FALSE 0
 #define TEMPO_ESPERA 5
 
-// Vetor de Threads
-int vet[NUMERO_THREADS + 1];
+// Mutex para protecao do Monitor
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Estrutura da vaga do estacionamento
 typedef struct vaga {
-  int slot;
-  int id;
+  int slot; // Semaforo
+  int id;  // Id da thread estacionada
 } TVaga;
 
 TVaga vaga;
 
-// Controle da Fila de Espera
-int fila[MAX_FUNCIONARIOS + 1];
-int in, out;
+// Controle da Fila de Prioridades
+int fila[NUMERO_THREADS];
+
+// Controle de quantas vezes cada thread estacionou
+int
 
 // Nomes das Threads, em ordem de prioridade
-char* nomes[MAX_FUNCIONARIOS] = {
-      "", // id reservado para a thread monitor
+char* nomes[NUMERO_THREADS -1] = {
       "Girafales",
       "Florinda",
       "Xavier",
@@ -38,41 +38,58 @@ char* nomes[MAX_FUNCIONARIOS] = {
 };
 
 // Funcoes locais
-void espera(void* args);
-void entrar_espera();
-void Limpar_Fila();
+void espera(void* args); // Threads Funcionarios (Consumidores)
+void diretor(void); // Thread Controladora de Deadlocks
+void monitor(void); // Thread Monitora (Produtora)
+int estacionar(void); // Funcao que pega proxima thread a entrar na vaga
+void entrar_espera(); // Funcao que coloca thread na fila de espera
+void Limpar_Fila(); // Inicializando fila com ids invalidos
 
-
-int main(void) {
+// Inicio procedimento pai
+int main(char* args[]) {
   // Variaveis de controle das threads
-  pthread_t employees[NUMERO_THREADS];
+  pthread_t funcionarios[NUMERO_THREADS+2];
+  // As threads extras sao:
+  // 7  - Monitor (Produtor)
+  // 8  - Diretor (Controlador de Deadlocks)
   int threads_args[NUMERO_THREADS];
   int rc, i;
 
   // Inicio da semente
   srand((unsigned)time(NULL));
 
-  // Iniciando estacionamento
-  vaga.slot = FALSE;
-
-  // Controle da Fila
+  // Iniciando fila de prioridades com id invalido
+  // Evitando que a thread monitor inicie de forma indevida
   Limpar_Fila();
 
+  // Criando Monitor
+  if ((rc = pthread_create(&funcionarios[6], NULL, monitor, NULL)))
+    printf(stderr, "Erro criando thread monitor.\n");
+  if ((rc = pthread_create(&funcionarios[7], NULL, diretor, NULL)))
+    printf(stderr, "Erro criando thread diretor.\n");
+
   // Criando threads
-  // Thread 0 sera usada como monitor (produtor)
-  for(i = 1; i < NUMERO_THREADS; i++) {
+  for(i = 0; i < NUMERO_THREADS; i++) {
     threads_args[i] = i;
-    rc = pthread_create(&employees[i], NULL, espera, (void*)&threads_args[i]);
+    rc = pthread_create(&funcionarios[i], NULL, espera, (void*)&threads_args[i]);
     assert(0 == rc);
   }
 
-  return(0);
+  // Aguardando threads
+  // Threads Monitor e Diretor não serão encerradas
+  // atraves da funcao join
+  for(i = 0; i < NUMERO_THREADS; i++) {
+    rc = pthread(join(threads[i], NULL));
+    assert(0 == rc);
+  }
+
+  return(EXIT_SUCESS);
 }
 
-// Funcao de espera das threads
+// Funcao das threads funcionarios (consumidores)
 void espera(void* id) {
   while(TRUE) {
-    sleep(rand() % 10);
+    sleep((rand() % 3) + 3); // Espera de 3 ~ 5 segundos
     entrar_espera((int*)id);
   }
 }
@@ -80,30 +97,42 @@ void espera(void* id) {
 // Funcao da thread monitor
 void monitor(void) {
   while(TRUE) {
-    if(vaga.slot == TRUE) {
+    pthread_mutex_lock(&mutex);
+      vaga.id = estacionar();
+      if(vaga.id != -1)
+        vaga.slot = TRUE;
+    pthread_mutex_unlock(&mutex);
+    if(vaga.id != -1)
       sleep(TEMPO_ESPERA);
+    pthread_mutex_lock(&mutex);
       vaga.slot = FALSE;
-    }
-    vaga.id = prox_estacionar();
-    vaga.slot = TRUE;
+    pthread_mutex_unlock(&mutex);
   }
 }
 
-void entrar_espera(int thread) {
+void diretor(void) {
+  //...
+}
+
+
+int estacionar(void) {
+  //...
+}
+
+void entrar_espera(int id) {
   int i;
-  // for inicia na posicao 1 devido ao slot do monitor
-  for(i = 1; i < (MAX_FUNCIONARIOS + 1); i++) {
-    if(thread == fila[i]) {
+  for(i = 0; i < NUMERO_THREADS; i++) {
+    if(id == fila[i] || id == vaga.id)
       return;
-    }
+    // Verificacao de prioridade na fila
+    // Entrada da thread na fila
+    // ...
   }
 }
 
 void Limpar_Fila() {
   int i;
-  for(i=0; i < (MAX_FUNCIONARIOS + 1); i++) {
-    fila[i] = 0;
+  for(i=0; i < (NUMERO_THREADS); i++) {
+    fila[i] = -1; // ID invalido
   }
-  in = 0;
-  out = 0;
 }
