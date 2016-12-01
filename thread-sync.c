@@ -22,8 +22,9 @@
 #define TRUE 1
 #define FALSE 0
 #define MAXIMO_ENTRADAS 5
-#define TEMPO_ESPERA_DIRETOR 5
-#define TEMPO_ESPERA_MONITOR 5
+#define TEMPO_ESPERA_DIRETOR 2
+#define TEMPO_ESPERA_MONITOR 2
+#define TEMPO_ESPERA_FUNCIONARIO 0
 
 // Mutex para protecao do Monitor
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -48,9 +49,9 @@ char* nomes[NUMERO_THREADS] = {"Girafales","Florinda","Xavier","Jean","Walter","
 int entradas[NUMERO_THREADS];
 
 //int i; Funcoes locais
-void* espera(void* thread); // Threads Funcionarios (Consumidores)
-void* diretor(void); // Thread Controladora de Deadlocks
-void* monitor(void); // Thread Monitora (Produtora)
+void* espera(void* args); // Threads Funcionarios (Consumidores)
+void* diretor(void* args); // Thread Controladora de Deadlocks
+void* monitor(void* args); // Thread Monitora (Produtora)
 void Iniciar_Entradas(void); // Inicia o vetor de entradas
 void Limpar_Fila(void); // Inicializando fila com ids invalidos
 int Checar_Entradas(void);
@@ -76,12 +77,21 @@ int main(char* args[]) {
   // Iniciando vetor de entradas pra contagem de cada funcionario
   Iniciar_Entradas();
 
+  // Setando estacionamento para vago
+
+  vaga.slot = FALSE;
+  vaga.id = -1;
+
   // Criando Monitor
-  if (pthread_create(&funcionarios[NUMERO_THREADS], NULL, monitor, NULL))
+  if (pthread_create(&funcionarios[NUMERO_THREADS], NULL, monitor, NULL)) {
     printf("Erro criando thread monitor.\n");
+    return(1);
+  }
   // Criando Diretor
-  if (pthread_create(&funcionarios[NUMERO_THREADS+1], NULL, diretor, NULL))
+  if (pthread_create(&funcionarios[NUMERO_THREADS+1], NULL, diretor, NULL)) {
     printf("Erro criando thread diretor.\n");
+    return(1);
+  }
 
   // Criando threads
   for(i = 0; i < NUMERO_THREADS; i++) {
@@ -94,25 +104,25 @@ int main(char* args[]) {
   // Threads Monitor e Diretor não serão encerradas
   // atraves da funcao join
   for(i = 0; i < NUMERO_THREADS; i++) {
-    rc = pthread_join(&funcionarios[i], NULL);
+    rc = pthread_join(funcionarios[i], NULL);
     assert(0 == rc);
   }
   return(0);
 }
 
 // Funcao das threads funcionarios (consumidores)
-void* espera(void* thread) {
-  int id = *(int *)thread;
+void* espera(void* args) {
+  int id = *(int *)args;
   while(!Checar_Entradas()) {
-    //sleep((rand() % 2) + 3); // Espera de 3 ~ 5 segundos
+    sleep(TEMPO_ESPERA_FUNCIONARIO); // Espera de 3 ~ 5 segundos
     int i, j, temp;
     if(id == vaga.id)
-      return;
+      continue;
     temp = id;
     if(Impar(temp))
       temp--;
     for(i = 0; i < NUMERO_THREADS; i++) {
-      if(fila[i] = id) {
+      if(fila[i] == id) {
         continue;
       }
     }
@@ -123,9 +133,6 @@ void* espera(void* thread) {
     // Espera o monitor liberar outro funcionário entrar na fila
     pthread_cond_wait(&signal_consumer, &mutex);
     for(i = 0; i < NUMERO_THREADS; i++) {
-      if(id == fila[i] || id == vaga.id) {
-        break;
-      }
       // Verificacao de prioridade na fila
       if((fila[i] == ((temp+2)%6) || fila[i] == ((temp+3)%6)) || fila[i] == -1) {
         for(j = NUMERO_THREADS-1; j >= i; j--) {
@@ -134,6 +141,7 @@ void* espera(void* thread) {
         }
         fila[i] = id;
         printf("%s quer usar a vaga\n ", nomes[id]);
+        break;
       }
     }
     pthread_mutex_unlock(&mutex);
@@ -141,8 +149,7 @@ void* espera(void* thread) {
 }
 
 // Funcao da thread monitor
-void* monitor(void) {
-  printf("Iniciando monitor.\n");
+void* monitor(void* args) {
   while(!Checar_Entradas()) {
     int i;
     // Trava de segurança da fila
@@ -152,7 +159,7 @@ void* monitor(void) {
     // Espera os funcionários liberarem o monitor
     pthread_cond_wait(&signal_producer, &mutex);
     // Coloca o funcionário de maior prioridade na vaga
-    if(!vaga.slot) {
+    if((!vaga.slot) && (fila[0] != -1)) {
       vaga.id = fila[0];
       for(i = 0; i < NUMERO_THREADS; i++) {
         fila[i] = fila[i+1];
@@ -164,9 +171,7 @@ void* monitor(void) {
         printf("%s estaciona para trabalhar\n", nomes[vaga.id]);
       }
     }
-    pthread_mutex_unlock(&mutex);
     sleep(TEMPO_ESPERA_MONITOR);
-    pthread_mutex_lock(&mutex);
     if(vaga.slot) {
       vaga.slot = FALSE;
       printf("%s vai para casa estudar\n", nomes[vaga.id]);
@@ -175,28 +180,24 @@ void* monitor(void) {
   }
 }
 
-void* diretor(void) {
-  printf("Iniciando diretor.\n");
-  int i, temp, aux;
+void* diretor(void* args) {
+  int i, temp, aux1, aux2, aux3;
   do {
     sleep(TEMPO_ESPERA_DIRETOR);
     pthread_mutex_lock(&mutex);
-    aux = FALSE;
+    if(vaga.slot) {
+      continue;
+    }
+    aux1 = aux2 = aux3 = FALSE;
     for(i = 0; i < NUMERO_THREADS; i++) {
       if(fila[i] == 0 || fila[i] == 1)
-        aux = TRUE;
-      else
-        aux = FALSE;
+        aux1 = TRUE;
       if(fila[i] == 2 || fila[i] == 3)
-        aux = TRUE;
-      else
-        aux = FALSE;
+        aux2 = TRUE;
       if(fila[i] == 4 || fila[i] == 5)
-        aux = TRUE;
-      else
-        aux = FALSE;
+        aux3 = TRUE;
     }
-    if(aux) {
+    if(aux1 && aux2 && aux3) {
       temp = rand() % 5;
       printf("Diretor detectou um deadlock, liberando %s\n", nomes[fila[0]]);
       for(i = 1; i < NUMERO_THREADS; i++) {
