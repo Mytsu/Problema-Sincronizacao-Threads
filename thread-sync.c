@@ -180,9 +180,6 @@ void* espera(void* args) {
 void* monitor(void* args) {
   do {
     int i;
-    if(Checar_Deadlock()) {
-      diretor(NULL);
-    }
     // Trava de segurança da fila
     pthread_mutex_lock(&mutex);
     // Espera diretor e funcionarios liberarem o monitor
@@ -190,6 +187,12 @@ void* monitor(void* args) {
     pthread_cond_signal(&signal_consumer);
     pthread_cond_wait(&signal_producer, &mutex);
     //pthread_cond_wait(&signal_controller, &mutex);
+
+    if(Checar_Deadlock()) {
+      printf("Checar_Deadlock: OK\n");
+      diretor(NULL);
+    }
+
     // Coloca o funcionário de maior prioridade na vaga
     if(fila[0] != -1) {
       vaga.id = fila[0];
@@ -218,7 +221,7 @@ void* diretor(void* args) {
   int i, j, temp, aux;
   //do {
     //sleep(TEMPO_ESPERA_DIRETOR);
-    pthread_mutex_lock(&mutex);
+    //pthread_mutex_lock(&mutex);
     // Espera monitor liberar verificacao
     //pthread_cond_signal(&signal_producer);
     //pthread_cond_wait(&signal_controller, &mutex);
@@ -262,7 +265,7 @@ void* diretor(void* args) {
     // libera acesso ao produtor
     pthread_cond_signal(&signal_producer);
     */
-    pthread_mutex_unlock(&mutex);
+    //pthread_mutex_unlock(&mutex);
   //} while(!Checar_Entradas());
   return(NULL);
 }
@@ -320,6 +323,7 @@ void Verifica_fila (void) {
 
 int Checar_Deadlock(void) {
   int i, aux1, aux2, aux3;
+  //pthread_mutex_lock(&mutex);
   aux1 = aux2 = aux3 = FALSE;
   for(i = 0; i < NUMERO_THREADS; i++) {
     if(fila[i] == 0 || fila[i] == 1)
@@ -329,6 +333,7 @@ int Checar_Deadlock(void) {
     if(fila[i] == 4 || fila[i] == 5)
       aux3 = TRUE;
   }
+  //pthread_mutex_unlock(&mutex);
   if(aux1 && aux2 && aux3) {
     return(TRUE);
   }
