@@ -141,6 +141,9 @@ void* espera(void* args) {
     // Espera o monitor liberar outro funcionário entrar na fila
     pthread_cond_wait(&signal_consumer, &mutex);
     Verifica_fila();
+    if(vaga.id == temp || vaga.id == (temp+1)) {
+      continue;
+    }
     for(i = 0; i < NUMERO_THREADS; i++) {
       // Verificacao de prioridade na fila
       if((fila[i] == ((temp+2)%6) || fila[i] == ((temp+3)%6)) || fila[i] == -1) {
