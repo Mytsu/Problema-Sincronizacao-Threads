@@ -142,7 +142,7 @@ void* espera(void* args) {
         aux = fila[i];
         fila[i] = id;
         for(j = (i+1); j < NUMERO_THREADS; j++) {
-          if(fila[j] == -1) {
+          if(fila[j]) {
             fila[j] = aux;
             aux = fila[j+1];
             break;
@@ -270,15 +270,12 @@ int Checar_Entradas(void) {
 }
 
 int ID_presente_fila(int id) {
-  pthread_mutex_lock(&mutex);
   int i;
   for(i = 0; i < NUMERO_THREADS; i++) {
     if(fila[i] == id) {
-      pthread_mutex_unlock(&mutex);
       return(TRUE);
     }
   }
-  pthread_mutex_unlock(&mutex);
   return(FALSE);
 }
 
@@ -287,11 +284,9 @@ int Fila_Cheia(void) {
   pthread_mutex_lock(&mutex);
   for(i = 0; i < NUMERO_THREADS; i++) {
     if(fila[i] == -1) {
-      pthread_mutex_unlock(&mutex);
       return(0);
     }
   }
-  pthread_mutex_unlock(&mutex);
   return(1);
 }
 
@@ -305,7 +300,6 @@ void Verifica_fila (void) {
 }
 
 int Checar_Deadlock(void) {
-  pthread_mutex_lock(&mutex);
   int i, aux1, aux2, aux3;
   aux1 = aux2 = aux3 = FALSE;
   for(i = 0; i < NUMERO_THREADS; i++) {
@@ -317,9 +311,7 @@ int Checar_Deadlock(void) {
       aux3 = TRUE;
   }
   if(aux1 && aux2 && aux3) {
-    pthread_mutex_unlock(&mutex);
     return(TRUE);
   }
-  pthread_mutex_unlock(&mutex);
   return(FALSE);
 }
