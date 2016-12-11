@@ -1,5 +1,5 @@
 //=====================================================
-// Arquivo: trabalho.c
+// Arquivo: thread-sync.c
 //
 // Autores: Jonathan Arantes Pinto
 //          Rúbia Marques Oliveira
